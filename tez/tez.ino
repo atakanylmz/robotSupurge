@@ -1,4 +1,3 @@
-
 const int sag_arka_trig = 52;
 const int arka_trig = 50;
 const int sag_on_trig = 48;
@@ -22,9 +21,11 @@ const int pwm_motor2 = 3;
 
 const int vakum_motor_saga = 8;
 const int vakum_motor_sola = 9;
-int tur = 0;
+int tamTur = 0;
 bool duvarBuldu = false;
 bool solmu = true;
+char komut;
+bool calissinmi = false;
 void setup() {
 
   pinMode(sag_arka_trig, OUTPUT);
@@ -49,41 +50,116 @@ void setup() {
   pinMode(vakum_motor_saga, OUTPUT);
   pinMode(vakum_motor_sola, OUTPUT);
   Serial.begin(9600);
+  Serial.begin(9600);
 
 }
 
 void loop() {
+  calismaKontrolEt();
   if (!duvarBuldu) {
+    vakumCalis();
     ilkDuvariBul();
   }
   int onSagMesafe = mesafeBul(on_sag_trig, on_sag_echo);
   int onSolMesafe = mesafeBul(on_sol_trig, on_sol_echo);
   while (onSagMesafe > 6 && onSolMesafe > 6) {
     duzIleriGit(34);
-    delay(50);
+    calismaKontrolEt();
     onSagMesafe = mesafeBul(on_sag_trig, on_sag_echo);
     onSolMesafe = mesafeBul(on_sol_trig, on_sol_echo);
-
   }
+  int sagMesafe = mesafeBul(sag_on_trig, sag_on_echo);
+  int solMesafe = mesafeBul(sol_on_trig, sol_on_echo);
+  while (sagMesafe < 4 && solMesafe < 4) {
+    duzGeriGit(34);
+  }
+   sagMesafe = mesafeBul(sag_on_trig, sag_on_echo);
+   solMesafe = mesafeBul(sol_on_trig, sol_on_echo);
   if (solmu) {
-    doksanDereceSolaDon();
-    duzIleriGit(34);
-    duzIleriGit(34);
-    doksanDereceSolaDon();
+    if(solMesafe < 5)
     solmu = false;
   } else {
-    doksanDereceSagaDon();
-    duzIleriGit(34);
-    duzIleriGit(34);
-    doksanDereceSagaDon();
+    if( sagMesafe < 5)
     solmu = true;
+  }
+  if (tamTur < 4) {
+    tamTur++;
+    if (solmu) {
+      doksanDereceSolaDon();
+      duzIleriGit(34);
+      calismaKontrolEt();
+      duzIleriGit(34);
+      doksanDereceSolaDon();
+      solmu = false;
+    } else {
+      doksanDereceSagaDon();
+      duzIleriGit(34);
+      calismaKontrolEt();
+      duzIleriGit(34);
+      doksanDereceSagaDon();
+      solmu = true;
+    }
+  } else {
+    tamTur = 0;
+    if (solmu) {
+      doksanDereceSolaDon();
+    } else {
+      doksanDereceSagaDon();
+    }
   }
 }
 
+void btKontrolEt() {
+  if (Serial.available() > 0) {
+    analogWrite(pwm_motor1, 150);
+    analogWrite(pwm_motor2, 150);
+    komut = Serial.read();
+    switch (komut) {
+      case 'U':
+        calissinmi = true;
+        break;
+      case 'u':
+        calissinmi = false;
+        delay(250);
+        break;
+      case 'W':
+        vakumCalis();
+        break;
+      case 'w':
+        vakumDur();
+        break;
+      case 'S':
+        hareketMotorDur();
+        break;
+      case 'F':
+        ileriCalis();
+        break;
+      case 'R':
+        solIleriSagGeriCalis();
+        break;
+      case 'B':
+        geriCalis();
+        break;
+      case 'L':
+        sagIleriSolGeriCalis();
+        break;
+      default:
+        break;
+    }
+  }
+}
+void calismaKontrolEt() {
+  btKontrolEt();
+  while (!calissinmi) {
+    btKontrolEt();
+  }
+  vakumCalis();
+}
 void ilkDuvariBul() {
   int onSagMesafe = mesafeBul(on_sag_trig, on_sag_echo);
   int onSolMesafe = mesafeBul(on_sol_trig, on_sol_echo);
   while (onSagMesafe > 6 && onSolMesafe > 6) {
+    calismaKontrolEt();
     if (onSagMesafe > 50 && onSolMesafe > 50)
       duzIleriGit(44);
     else if (onSagMesafe > 35 && onSolMesafe > 35)
@@ -104,6 +180,7 @@ void ilkDuvariBul() {
   kaymaDuzelt(2);
   int arkaMesafe = mesafeBul(arka_trig, arka_echo);
   while (arkaMesafe > 7 ) {
+    calismaKontrolEt();
     duzGeriGit(30);
     delay(50);
     arkaMesafe = mesafeBul(arka_trig, arka_echo);
@@ -115,21 +192,21 @@ void ilkDuvariBul() {
 void kaymaDuzelt(int hata) {
   int fark = farkBul();
   delay(50);
-  int tur=0;
+  int tur = 0;
   while (true) {
     if (fark >= hata) {
-      if(tur==5||tur==6){
-              sagaDon(300);
-              tur=0;
-      }else
-      sagaDon(400);
+      if (tur == 5 || tur == 6) {
+        sagaDon(300);
+        tur = 0;
+      } else
+        sagaDon(400);
     }
     else if (fark <= -hata) {
-      if(tur==5||tur==6){
-             solaDon(500);
-             tur=0;
-      }else
-     solaDon(400);
+      if (tur == 5 || tur == 6) {
+        solaDon(500);
+        tur = 0;
+      } else
+        solaDon(400);
     }
     else
       break;
@@ -338,4 +415,11 @@ int mesafeBul(int trig, int echo) {
   delay(50);
   return mesafe;
 }
-
+void vakumCalis() {
+  digitalWrite(vakum_motor_saga, HIGH);
+  digitalWrite(vakum_motor_sola, LOW);
+}
+void vakumDur() {
+  digitalWrite(vakum_motor_saga, LOW);
+  digitalWrite(vakum_motor_sola, LOW);
+}
